@@ -1,0 +1,37 @@
+name: BPASI Engine Courtroom Swarm
+
+on:
+  repository_dispatch:
+    types: [wordpress_form_intake, live_courtroom_stream]
+
+jobs:
+  execute-bpasi-core:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360 # Explicitly locked onto GitHub's maximum 6-hour runtime ceiling
+
+    steps:
+      - name: Checkout Code Repository
+        uses: actions/checkout@v4
+
+      - name: Initialize Python Runtime Environment
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Swarm Core Dependencies
+        run: |
+          pip install requests openai
+
+      - name: Execute BPASI Narrative Diagnostic Core
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          NVIDIA_NIM_ENDPOINT: ${{ secrets.NVIDIA_NIM_ENDPOINT }}
+          LEAD_TARGET_EMAIL: ${{ secrets.LEAD_TARGET_EMAIL }}
+          USER_FIRST_NAMES: ${{ github.event.client_payload.first_names }}
+          USER_SURNAME: "Moahi"  # Hardlocked individual litigant identification
+          USER_ID: ${{ github.event.client_payload.id_number }}
+          RAW_COMPLAINT: ${{ github.event.client_payload.complaint_text }}
+          WP_SESSION_ID: ${{ github.event.client_payload.session_id }}
+          WP_TIMESTAMP: ${{ github.event.client_payload.timestamp }}
+        run: |
+          python core_engine.py
