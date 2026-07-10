@@ -18,14 +18,17 @@ def run_bpasi_swarm():
     token = hashlib.sha256(f"{session_id}-{timestamp}".encode()).hexdigest()[:8].upper()
     print(f"🧬 [BPASI ENGINE ACTIVE] Processing entry signature: TS-{token} for Litigant: {first_names} {surname}")
     
-    # 1. Initialize API Handshakes
+    # 1. Initialize API Handshakes with Exact Base URLs
+    # FIX: Corrected endpoint from /v1 to /openai/v1
     groq_client = OpenAI(
-        base_url="https://api.groq.com/v1",
+        base_url="https://api.groq.com/openai/v1",
         api_key=os.getenv("GROQ_API_KEY")
     )
     
+    # Keep local/cloud NIM endpoint flexibility
+    nim_base_url = os.getenv("NVIDIA_NIM_ENDPOINT", "https://integrate.api.nvidia.com/v1")
     nim_client = OpenAI(
-        base_url=os.getenv("NVIDIA_NIM_ENDPOINT"),
+        base_url=nim_base_url,
         api_key="nvidia-nim-token-handling"
     )
     
@@ -62,6 +65,7 @@ def run_bpasi_swarm():
     Input Foundations: {legal_foundation}
     """
     
+    # Note: Ensure your Groq account has access to the specified model string below
     groq_res = groq_client.chat.completions.create(
         model="llama3-70b-8192",
         messages=[{"role": "user", "content": groq_prompt}],
