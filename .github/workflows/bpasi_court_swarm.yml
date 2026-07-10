@@ -3,11 +3,26 @@ name: BPASI Engine Courtroom Swarm
 on:
   repository_dispatch:
     types: [wordpress_form_intake, live_courtroom_stream]
+  # Enables manual execution via the GitHub Actions UI
+  workflow_dispatch:
+    inputs:
+      first_names:
+        description: 'Litigant First Names'
+        required: true
+        default: 'Bobby'
+      complaint_text:
+        description: 'Public Irritation / Irregularity Narrative'
+        required: true
+        default: 'Systemic failure in tracking tender allocations regarding critical tech infrastructure.'
+      session_id:
+        description: 'Manual Test Session ID'
+        required: false
+        default: 'MANUAL-TEST-999'
 
 jobs:
   execute-bpasi-core:
     runs-on: ubuntu-latest
-    timeout-minutes: 360 # Explicitly locked onto GitHub's maximum 6-hour runtime ceiling
+    timeout-minutes: 360 # Locked to GitHub's maximum 6-hour runtime ceiling
 
     steps:
       - name: Checkout Code Repository
@@ -27,11 +42,11 @@ jobs:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           NVIDIA_NIM_ENDPOINT: ${{ secrets.NVIDIA_NIM_ENDPOINT }}
           LEAD_TARGET_EMAIL: ${{ secrets.LEAD_TARGET_EMAIL }}
-          USER_FIRST_NAMES: ${{ github.event.client_payload.first_names }}
+          # Dynamically capture variables from either the webhook payload OR the manual form input
+          USER_FIRST_NAMES: ${{ github.event.client_payload.first_names || github.event.inputs.first_names }}
           USER_SURNAME: "Moahi"  # Hardlocked individual litigant identification
-          USER_ID: ${{ github.event.client_payload.id_number }}
-          RAW_COMPLAINT: ${{ github.event.client_payload.complaint_text }}
-          WP_SESSION_ID: ${{ github.event.client_payload.session_id }}
-          WP_TIMESTAMP: ${{ github.event.client_payload.timestamp }}
+          RAW_COMPLAINT: ${{ github.event.client_payload.complaint_text || github.event.inputs.complaint_text }}
+          WP_SESSION_ID: ${{ github.event.client_payload.session_id || github.event.inputs.session_id }}
+          WP_TIMESTAMP: ${{ github.event.client_payload.timestamp || 'MANUAL-RUN' }}
         run: |
           python core_engine.py
