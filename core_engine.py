@@ -19,7 +19,6 @@ def run_bpasi_swarm():
     print(f"🧬 [BPASI ENGINE ACTIVE] Processing entry signature: TS-{token} for Litigant: {first_names} {surname}")
     
     # 1. Initialize API Handshakes with Exact Base URLs
-    # FIX: Corrected endpoint from /v1 to /openai/v1
     groq_client = OpenAI(
         base_url="https://api.groq.com/openai/v1",
         api_key=os.getenv("GROQ_API_KEY")
@@ -65,9 +64,9 @@ def run_bpasi_swarm():
     Input Foundations: {legal_foundation}
     """
     
-    # Note: Ensure your Groq account has access to the specified model string below
+    # FIX: Updated model parameter to an active supported string to fix the 400 error
     groq_res = groq_client.chat.completions.create(
-        model="llama3-70b-8192",
+        model="llama-3.1-70b-versatile",
         messages=[{"role": "user", "content": groq_prompt}],
         temperature=0.1
     )
