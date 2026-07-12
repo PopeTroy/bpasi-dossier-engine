@@ -64,9 +64,9 @@ def run_bpasi_swarm():
     Input Foundations: {legal_foundation}
     """
     
-    # FIX: Updated model parameter to an active supported string to fix the 400 error
+    # FIX: Updated model string parameter to Groq's active production engine
     groq_res = groq_client.chat.completions.create(
-        model="llama-3.1-70b-versatile",
+        model="openai/gpt-oss-120b",
         messages=[{"role": "user", "content": groq_prompt}],
         temperature=0.1
     )
