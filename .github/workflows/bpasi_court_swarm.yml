@@ -9,6 +9,30 @@ on:
         description: 'Litigant First Names'
         required: true
         default: 'Bobby'
+      telephone:
+        description: 'Contact Telephone Number'
+        required: true
+        default: '+27710000000'
+      email:
+        description: 'Litigant Email Address'
+        required: true
+        default: 'bobby.moahi@example.com'
+      street:
+        description: 'Street Address'
+        required: true
+        default: '128 Blockchain Avenue'
+      city_township:
+        description: 'City or Township'
+        required: true
+        default: 'Soweto'
+      province:
+        description: 'Province'
+        required: true
+        default: 'Gauteng'
+      zip_code:
+        description: 'Postal Code'
+        required: true
+        default: '1804'
       complaint_text:
         description: 'Public Irritation / Irregularity Narrative'
         required: true
@@ -21,7 +45,7 @@ on:
 jobs:
   execute-bpasi-core:
     runs-on: ubuntu-latest
-    timeout-minutes: 360 # Explicitly locked onto GitHub's maximum 6-hour execution window
+    timeout-minutes: 360
 
     steps:
       - name: Checkout Code Repository
@@ -34,14 +58,20 @@ jobs:
 
       - name: Install Swarm Core Dependencies
         run: |
-          pip install requests openai fpdf2
+          pip install requests openai fpdf2 mathjs
 
       - name: Execute BPASI Narrative Diagnostic Core
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           NVIDIA_NIM_ENDPOINT: ${{ secrets.NVIDIA_NIM_ENDPOINT }}
           USER_FIRST_NAMES: ${{ github.event.client_payload.first_names || github.event.inputs.first_names }}
-          USER_SURNAME: "Moahi"  # Hardlocked individual litigant identification
+          USER_SURNAME: "Moahi"
+          USER_PHONE: ${{ github.event.client_payload.telephone || github.event.inputs.telephone }}
+          USER_EMAIL: ${{ github.event.client_payload.email || github.event.inputs.email }}
+          USER_STREET: ${{ github.event.client_payload.street || github.event.inputs.street }}
+          USER_CITY: ${{ github.event.client_payload.city_township || github.event.inputs.city_township }}
+          USER_PROVINCE: ${{ github.event.client_payload.province || github.event.inputs.province }}
+          USER_ZIP: ${{ github.event.client_payload.zip_code || github.event.inputs.zip_code }}
           RAW_COMPLAINT: ${{ github.event.client_payload.complaint_text || github.event.inputs.complaint_text }}
           WP_SESSION_ID: ${{ github.event.client_payload.session_id || github.event.inputs.session_id }}
           WP_TIMESTAMP: ${{ github.event.client_payload.timestamp || 'MANUAL-RUN' }}
