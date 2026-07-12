@@ -3,6 +3,7 @@ import sys
 import time
 import hashlib
 import math
+import requests
 from openai import OpenAI
 from fpdf import FPDF
 
@@ -13,9 +14,28 @@ class BPASICourtDocument(FPDF):
     def __init__(self, litigant_meta):
         super().__init__()
         self.meta = litigant_meta
+        self.logo1_path = "logo1_temp.webp"
+        self.logo2_path = "logo2_temp.png"
+        self._download_runtime_logos()
+
+    def _download_runtime_logos(self):
+        # Fetch remote assets securely at execution runtime
+        url1 = "https://celsiustechmediagroup.co.za/wp-content/uploads/2026/01/cropped-CTMG.webp"
+        url2 = "https://celsiustechmediagroup.co.za/wp-content/uploads/2026/05/craiyon_160323_image-3.png"
+        try:
+            r1 = requests.get(url1, timeout=10)
+            if r1.status_code == 200:
+                with open(self.logo1_path, 'wb') as f:
+                    f.write(r1.content)
+            
+            r2 = requests.get(url2, timeout=10)
+            if r2.status_code == 200:
+                with open(self.logo2_path, 'wb') as f:
+                    f.write(r2.content)
+        except Exception as e:
+            print(f"⚠️ Metadata logo download bypassed during offline runtime test: {e}")
 
     def header(self):
-        # Render Contact Header on the front page only
         if self.page_no() == 1:
             self.set_font("Helvetica", "B", 10)
             self.cell(0, 5, f"LITIGANT IN PERSON: {self.meta['name'].upper()}", ln=1, align="L")
@@ -32,36 +52,44 @@ class BPASICourtDocument(FPDF):
             self.ln(5)
 
     def footer(self):
-        self.set_y(-20)
+        # Adjust Y-anchor upwards to accommodate dual compliance logos cleanly
+        self.set_y(-32)
         self.set_font("Helvetica", "I", 7)
-        # Standardized compliance fine print
+        
+        # Primary statutory tracking string
         fine_print = f"This data message is generated and signed in accordance with Sections 11, 15 and 20 of ECTA 25 of 2002. Confidentiality managed under POPIA 4 of 2013. | Session Reference Trace Token ID: {self.meta['token']}"
         self.multi_cell(0, 4, fine_print, border=0, align="C")
+        self.ln(1)
+        
+        # Exact requested forensic audit compliance text allocation
+        audit_text = "(state forensics and diagnostic audit done by Celsius Technology & Media Group Developed UESP PRCE Legal Forensic Diagnostic)"
+        self.set_font("Helvetica", "B", 7)
+        self.cell(0, 4, audit_text, ln=1, align="C")
+        self.ln(2)
+        
+        # Dynamically render alignment blocks for verified runtime images
+        current_x = self.get_x() + 75
+        if os.path.exists(self.logo1_path):
+            self.image(self.logo1_path, x=current_x, y=self.get_y(), h=7)
+        if os.path.exists(self.logo2_path):
+            self.image(self.logo2_path, x=current_x + 25, y=self.get_y(), h=7)
 
 def calculate_nearest_court(city_township):
-    # Mock spatial coordinate resolver (Simulating live geocoding mapping arrays)
-    # Defaulting mock tracking positions based on township parameters
     township_lower = city_township.lower()
-    
-    # Coordinates for central court structures
     pta_court = (-25.74611, 28.18806)
     jhb_court = (-26.20444, 28.04167)
     
-    # Assigning mock positions to resolve the mathematical radius cleanly
     if "soweto" in township_lower or "johannesburg" in township_lower or "alexandra" in township_lower:
-        user_loc = (-26.2678, 27.8585)  # Soweto centroid vector area
+        user_loc = (-26.2678, 27.8585)
     else:
-        user_loc = (-25.7479, 28.1132)  # Pretoria west matrix area
+        user_loc = (-25.7479, 28.1132)
         
-    # Haversine spatial calculation formula
     def haversine(coord1, coord2):
-        R = 6371.0 # Radius of the earth in kilometers
+        R = 6371.0
         lat1, lon1 = math.radians(coord1[0]), math.radians(coord1[1])
         lat2, lon2 = math.radians(coord2[0]), math.radians(coord2[1])
-        
         dlat = lat2 - lat1
         dlon = lon2 - lon1
-        
         a = math.sin(dlat / 2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2)**2
         c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
         return R * c
@@ -77,7 +105,7 @@ def calculate_nearest_court(city_township):
 def create_court_pdf(filename, title_text, content_text, litigant_meta, needs_commissioner=False):
     pdf = BPASICourtDocument(litigant_meta)
     pdf.add_page()
-    pdf.set_auto_page_break(auto=True, margin=25)
+    pdf.set_auto_page_break(auto=True, margin=35) # Expanded margin to safeguard footer blocks
     
     pdf.set_font("Helvetica", "B", 12)
     pdf.multi_cell(0, 6, title_text, border=0, align="C")
@@ -118,7 +146,6 @@ def run_bpasi_swarm():
     first_names = os.getenv("USER_FIRST_NAMES", "Bobby")
     surname = os.getenv("USER_SURNAME", "Moahi")
     
-    # Extract geographical and communication variables
     phone = os.getenv("USER_PHONE", "+27710000000")
     email = os.getenv("USER_EMAIL", "bobby.moahi@example.com")
     street = os.getenv("USER_STREET", "128 Blockchain Avenue")
@@ -129,7 +156,6 @@ def run_bpasi_swarm():
     token = hashlib.sha256(f"{session_id}-{timestamp}".encode()).hexdigest()[:8].upper()
     full_address = f"{street}, {city}, {province}, {zip_code}"
     
-    # Calculate nearest judicial division seat location parameters
     court_division, calculated_radius = calculate_nearest_court(city)
     
     litigant_meta = {
@@ -142,7 +168,7 @@ def run_bpasi_swarm():
         "token": token
     }
     
-    print(f"🧬 [BPASI ENGINE ACTIVE] Entry signature: TS-{token} | Target Court: {court_division} ({calculated_radius:.2f} km)")
+    print(f"🧬 [BPASI ENGINE ACTIVE] Entry signature: TS-{token} | Target Court: {court_division}")
     
     groq_client = OpenAI(
         base_url="https://api.groq.com/openai/v1",
