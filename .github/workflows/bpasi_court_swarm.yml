@@ -57,8 +57,9 @@ jobs:
           python-version: '3.11'
 
       - name: Install Swarm Core Dependencies
+        # FIX: Removed non-existent mathjs pip package
         run: |
-          pip install requests openai fpdf2 mathjs
+          pip install requests openai fpdf2
 
       - name: Execute BPASI Narrative Diagnostic Core
         env:
