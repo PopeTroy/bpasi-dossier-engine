@@ -3,7 +3,6 @@ name: BPASI Engine Courtroom Swarm
 on:
   repository_dispatch:
     types: [wordpress_form_intake, live_courtroom_stream]
-  # Enables manual execution via the GitHub Actions UI
   workflow_dispatch:
     inputs:
       first_names:
@@ -22,7 +21,7 @@ on:
 jobs:
   execute-bpasi-core:
     runs-on: ubuntu-latest
-    timeout-minutes: 360 # Locked to GitHub's maximum 6-hour runtime ceiling
+    timeout-minutes: 360 # Explicitly locked onto GitHub's maximum 6-hour execution window
 
     steps:
       - name: Checkout Code Repository
@@ -35,14 +34,12 @@ jobs:
 
       - name: Install Swarm Core Dependencies
         run: |
-          pip install requests openai
+          pip install requests openai fpdf2
 
       - name: Execute BPASI Narrative Diagnostic Core
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           NVIDIA_NIM_ENDPOINT: ${{ secrets.NVIDIA_NIM_ENDPOINT }}
-          LEAD_TARGET_EMAIL: ${{ secrets.LEAD_TARGET_EMAIL }}
-          # Dynamically capture variables from either the webhook payload OR the manual form input
           USER_FIRST_NAMES: ${{ github.event.client_payload.first_names || github.event.inputs.first_names }}
           USER_SURNAME: "Moahi"  # Hardlocked individual litigant identification
           RAW_COMPLAINT: ${{ github.event.client_payload.complaint_text || github.event.inputs.complaint_text }}
@@ -50,3 +47,10 @@ jobs:
           WP_TIMESTAMP: ${{ github.event.client_payload.timestamp || 'MANUAL-RUN' }}
         run: |
           python core_engine.py
+
+      - name: Archive CaseLines Compliant PDF Dossier Bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: CaseLines_Moahi_Court_Bundle
+          path: "*.pdf"
+          retention-days: 5
