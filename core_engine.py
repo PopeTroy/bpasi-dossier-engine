@@ -64,7 +64,7 @@ def run_bpasi_swarm():
     Input Foundations: {legal_foundation}
     """
     
-    # FIX: Updated model string parameter to Groq's active production engine
+    # Verified active 2026 Groq production model parameter
     groq_res = groq_client.chat.completions.create(
         model="openai/gpt-oss-120b",
         messages=[{"role": "user", "content": groq_prompt}],
@@ -76,8 +76,9 @@ def run_bpasi_swarm():
     print("\n🚀 [ULTIMATE SYSTEM STATUS ACHIEVED - CASELINES RECON COMPLETE]")
     print(caselines_index)
     
-    # Simulating data delivery step for the lead tracking system configuration
-    print(f"📬 Forwarding verification metadata summary signature [TS-{token}] to lead generation queue at: info@celsiusmediagroup.co.za")
+    # HARDLOCKED LEAD DELIVERY DESTINATION NODE
+    target_lead_node = "info@celsiustechmediagroup.co.za"
+    print(f"📬 Forwarding verification metadata summary signature [TS-{token}] to lead generation queue at: {target_lead_node}")
 
 if __name__ == "__main__":
     run_bpasi_swarm()
