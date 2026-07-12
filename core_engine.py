@@ -3,9 +3,30 @@ import sys
 import time
 import hashlib
 import math
+import re
 import requests
 from openai import OpenAI
 from fpdf import FPDF
+from fpdf.enums import XPos, YPos
+
+# =====================================================================
+# SYSTEM TEXT SANITIZER ROUTINE
+# =====================================================================
+def sanitize_for_latin1(text):
+    """Replaces Unicode characters that blow up core FPDF Latin-1 fonts."""
+    if not text:
+        return ""
+    # Swap common smart punctuation characters
+    text = text.replace("\u2013", "-")  # En-dash
+    text = text.replace("\u2014", "-")  # Em-dash
+    text = text.replace("\u2018", "'")  # Left single quote
+    text = text.replace("\u2019", "'")  # Right single quote
+    text = text.replace("\u201c", '"')  # Left double quote
+    text = text.replace("\u201d", '"')  # Right double quote
+    text = text.replace("\u2022", "*")  # Bullet point
+    
+    # Strip any remaining out-of-bounds characters cleanly
+    return text.encode('latin-1', 'replace').decode('latin-1')
 
 # =====================================================================
 # COURT COMPLIANT PDF ARCHITECTURE SPECIFICATION
@@ -34,29 +55,29 @@ class BPASICourtDocument(FPDF):
     def header(self):
         if self.page_no() == 1:
             self.set_font("Helvetica", "B", 10)
-            self.cell(0, 5, f"LITIGANT IN PERSON: {self.meta['name'].upper()}", ln=1, align="L")
+            self.cell(0, 5, sanitize_for_latin1(f"LITIGANT IN PERSON: {self.meta['name'].upper()}"), new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L")
             self.set_font("Helvetica", "", 9)
-            self.cell(0, 4, f"Address: {self.meta['address']}", ln=1, align="L")
-            self.cell(0, 4, f"Contact: {self.meta['phone']} | Email: {self.meta['email']}", ln=1, align="L")
-            self.cell(0, 4, f"Calculated Jurisdiction: {self.meta['division']} ({self.meta['distance']:.2f} km radius)", ln=1, align="L")
+            self.cell(0, 4, sanitize_for_latin1(f"Address: {self.meta['address']}"), new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L")
+            self.cell(0, 4, sanitize_for_latin1(f"Contact: {self.meta['phone']} | Email: {self.meta['email']}"), new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L")
+            self.cell(0, 4, sanitize_for_latin1(f"Calculated Jurisdiction: {self.meta['division']} ({self.meta['distance']:.2f} km radius)"), new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L")
             self.ln(3)
             self.line(10, self.get_y(), 200, self.get_y())
             self.ln(5)
         elif self.page_no() > 1:
             self.set_font("Helvetica", "I", 9)
-            self.cell(0, 10, f"{self.meta['name'].upper()} v THE RESPONDENTS - Page {self.page_no()}", border=0, ln=1, align="R")
+            self.cell(0, 10, sanitize_for_latin1(f"{self.meta['name'].upper()} v THE RESPONDENTS - Page {self.page_no()}"), border=0, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="R")
             self.ln(5)
 
     def footer(self):
         self.set_y(-32)
         self.set_font("Helvetica", "I", 7)
         fine_print = f"This data message is generated and signed in accordance with Sections 11, 15 and 20 of ECTA 25 of 2002. Confidentiality managed under POPIA 4 of 2013. | Session Reference Trace Token ID: {self.meta['token']}"
-        self.multi_cell(0, 4, fine_print, border=0, align="C")
+        self.multi_cell(0, 4, sanitize_for_latin1(fine_print), border=0, align="C")
         self.ln(1)
         
         audit_text = "(state forensics and diagnostic audit done by Celsius Technology & Media Group Developed UESP PRCE Legal Forensic Diagnostic)"
         self.set_font("Helvetica", "B", 7)
-        self.cell(0, 4, audit_text, ln=1, align="C")
+        self.cell(0, 4, sanitize_for_latin1(audit_text), new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
         self.ln(2)
         
         current_x = self.get_x() + 75
@@ -84,28 +105,30 @@ def create_court_pdf(filename, title_text, content_text, litigant_meta, needs_co
     pdf.set_auto_page_break(auto=True, margin=35)
     
     pdf.set_font("Helvetica", "B", 12)
-    pdf.multi_cell(0, 6, title_text, border=0, align="C")
+    pdf.multi_cell(0, 6, sanitize_for_latin1(title_text), border=0, align="C")
     pdf.ln(10)
     
     pdf.set_font("Helvetica", "", 11)
     for paragraph in content_text.split('\n'):
         if paragraph.strip():
-            pdf.multi_cell(0, 6, paragraph.strip(), ln=1)
+            pdf.multi_cell(0, 6, sanitize_for_latin1(paragraph.strip()))
             pdf.ln(4)
             
     if needs_commissioner:
         pdf.ln(12)
         pdf.set_font("Helvetica", "B", 11)
-        pdf.cell(0, 6, f"DEPONENT SIGNATURE CRITICAL LOCK: {litigant_meta['name'].upper()}", ln=1)
+        self_name = sanitize_for_latin1(f"DEPONENT SIGNATURE CRITICAL LOCK: {litigant_meta['name'].upper()}")
+        pdf.cell(0, 6, self_name, new_x=XPos.LMARGIN, new_y=YPos.NEXT, ln=0, align="L")
         pdf.ln(4)
         pdf.set_font("Helvetica", "", 10)
-        pdf.multi_cell(0, 5, "I hereby certify that the Deponent has acknowledged that he knows and understands the contents of this affidavit, which was signed and sworn to before me at _________________ on this _____ day of ___________________ 2026, the regulations contained in Government Notice No. R1258 of 21 July 1972, as amended, having been complied with.", ln=1)
+        cert_text = "I hereby certify that the Deponent has acknowledged that he knows and understands the contents of this affidavit, which was signed and sworn to before me at _________________ on this _____ day of ___________________ 2026, the regulations contained in Government Notice No. R1258 of 21 July 1972, as amended, having been complied with."
+        pdf.multi_cell(0, 5, sanitize_for_latin1(cert_text))
         pdf.ln(8)
-        pdf.cell(0, 5, "_________________________________________", ln=1)
+        pdf.cell(0, 5, "_________________________________________", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L")
         pdf.set_font("Helvetica", "B", 10)
-        pdf.cell(0, 5, "COMMISSIONER OF OATHS (EX OFFICIO)", ln=1)
+        pdf.cell(0, 5, "COMMISSIONER OF OATHS (EX OFFICIO)", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L")
         pdf.ln(5)
-        pdf.cell(0, 15, "[ PLACE PHYSICAL SAPS PRECINCT STAMP HERE ]", border=1, ln=1, align="C")
+        pdf.cell(0, 15, "[ PLACE PHYSICAL SAPS PRECINCT STAMP HERE ]", border=1, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
 
     pdf.output(filename)
 
