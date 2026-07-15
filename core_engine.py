@@ -5,23 +5,45 @@ import uuid
 import json
 import hashlib
 import math
-import re
 import requests
 import datetime
-from groq import Groq  # Native Groq client integration
+from openai import OpenAI  # Using the installed openai library configured for Groq
 from fpdf import FPDF
 from fpdf.enums import XPos, YPos
 
 # =====================================================================
 # SYSTEM CONFIGURATION & GLOBAL IDENTITY CONTRACTS
 # =====================================================================
-TIMESTAMP = os.getenv('MAGE_TIMESTAMP', datetime.datetime.now(datetime.timezone.utc).isoformat())
-SESSION_ID = str(uuid.uuid4())  # Mandatory POPIA Session Identifier
+# Map variables directly to your GitHub Action YAML environment mappings
+TIMESTAMP = os.getenv('WP_TIMESTAMP', datetime.datetime.now(datetime.timezone.utc).isoformat())
+SESSION_ID = os.getenv('WP_SESSION_ID') or str(uuid.uuid4())
+
+# User Identity Reconstruction from YAML ENV inputs
+FIRST_NAMES = os.getenv('USER_FIRST_NAMES', 'Bobby')
+SURNAME = os.getenv('USER_SURNAME', 'Moahi')
+FULL_NAME = f"{FIRST_NAMES} {SURNAME}"
+
+STREET = os.getenv('USER_STREET', '128 Blockchain Avenue')
+CITY = os.getenv('USER_CITY', 'Soweto')
+PROVINCE = os.getenv('USER_PROVINCE', 'Gauteng')
+ZIP = os.getenv('USER_ZIP', '1804')
+FULL_ADDRESS = f"{STREET}, {CITY}, {PROVINCE}, {ZIP}"
+
+PHONE = os.getenv('USER_PHONE', '+27710000000')
+EMAIL = os.getenv('USER_EMAIL', 'bobby.moahi@example.com')
+RAW_COMPLAINT = os.getenv('RAW_COMPLAINT', 'Systemic failure in tracking tender allocations regarding critical tech infrastructure.')
 
 # Authoritative GitHub Asset Routing Path Matrix
 USERNAME = "PopeTroy"
 REPO = "PopeTroy-Signature-Mage-console-Nano-scaling"
 RAW_BASE_URL = f"https://raw.githubusercontent.com/{USERNAME}/{REPO}/main/"
+
+# Secure initialization of the OpenAI compatible Groq endpoint
+groq_api_key = os.getenv("GROQ_API_KEY")
+client = OpenAI(
+    base_url="https://api.groq.com/openai/v1",
+    api_key=groq_api_key
+) if groq_api_key else None
 
 # =====================================================================
 # SYSTEM TEXT SANITIZER ROUTINE
@@ -30,7 +52,6 @@ def sanitize_for_latin1(text):
     """Replaces Unicode characters that blow up core FPDF Latin-1 fonts."""
     if not text:
         return ""
-    # Swap common smart punctuation characters
     text = text.replace("\u2013", "-")  # En-dash
     text = text.replace("\u2014", "-")  # Em-dash
     text = text.replace("\u2018", "'")  # Left single quote
@@ -38,8 +59,6 @@ def sanitize_for_latin1(text):
     text = text.replace("\u201c", '"')  # Left double quote
     text = text.replace("\u201d", '"')  # Right double quote
     text = text.replace("\u2022", "*")  # Bullet point
-    
-    # Strip any remaining out-of-bounds characters cleanly
     return text.encode('latin-1', 'replace').decode('latin-1')
 
 # =====================================================================
@@ -84,7 +103,6 @@ class BPASICourtDocument(FPDF):
             if r2.status_code == 200:
                 with open(self.logo2_path, 'wb') as f: f.write(r2.content)
         except Exception as e:
-            # Safe compliance bypass logging
             write_to_ghost_ledger({
                 "status": "LOGO_DOWNLOAD_BYPASSED",
                 "error_detail": str(e)
@@ -170,7 +188,6 @@ def create_court_pdf(filename, title_text, content_text, litigant_meta, needs_co
 
     pdf.output(filename)
     
-    # Log successful document construction trace
     write_to_ghost_ledger({
         "status": "PDF_COMPILED_SUCCESSFULLY",
         "file_name": filename,
@@ -181,14 +198,12 @@ def create_court_pdf(filename, title_text, content_text, litigant_meta, needs_co
 # CORE INTELLIGENT DISPATCH ROUTER
 # =====================================================================
 def run_bpasi_swarm():
-    raw_complaint = os.getenv("RAW_COMPLAINT", "check for corruption links in department of fisheries")
-    city = os.getenv("USER_CITY", "Soweto")
-    token = hashlib.sha256(f"{raw_complaint}-{time.time()}".encode()).hexdigest()[:8].upper()
+    token = hashlib.sha256(f"{RAW_COMPLAINT}-{time.time()}".encode()).hexdigest()[:8].upper()
     
-    court_division, calculated_radius = calculate_nearest_court(city)
+    court_division, calculated_radius = calculate_nearest_court(CITY)
     litigant_meta = {
-        "name": "Bobby Moahi", "address": f"128 Blockchain Ave, {city}, Gauteng",
-        "phone": "+27710000000", "email": "bobby.moahi@example.com",
+        "name": FULL_NAME, "address": FULL_ADDRESS,
+        "phone": PHONE, "email": EMAIL,
         "division": court_division, "distance": calculated_radius, "token": token
     }
 
@@ -202,7 +217,7 @@ def run_bpasi_swarm():
         "token_reference": token
     }
 
-    complaint_lower = raw_complaint.lower()
+    complaint_lower = RAW_COMPLAINT.lower()
     if "fisheries" in complaint_lower or "corruption" in complaint_lower or "anc" in complaint_lower:
         print("🔍 [BPASI ADVANCED FORENSICS ENGAGED] Executing absolute Constitutional mapping array...")
         fact_base = (
@@ -211,14 +226,12 @@ def run_bpasi_swarm():
             "These actions directly challenge the structural coherence and binding nature of the entire supreme law."
         )
     else:
-        fact_base = raw_complaint
+        fact_base = RAW_COMPLAINT
 
-    # Standardizing dynamic prompt processing utilizing correct Llama model endpoints on Groq API
-    api_key = os.getenv("GROQ_API_KEY")
-    if api_key:
-        groq_client = Groq(api_key=api_key)
+    # Call AI endpoint securely pointing to Groq via the standard OpenAI SDK client wrapper
+    if client:
         try:
-            groq_res = groq_client.chat.completions.create(
+            groq_res = client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
                 messages=[{"role": "user", "content": f"Create a strict court-compliant CaseLines Master Index of Documents (MoI) based on this systemic constitutional challenge: {fact_base}"}],
                 temperature=0.1
@@ -232,7 +245,7 @@ def run_bpasi_swarm():
         caselines_index = f"A01_Master_Index_{token}.pdf\nA02_Founding_Affidavit_Moahi_{token}.pdf"
 
     print("⚙️ Compiling Document Dossier with supreme constitutional grounding...")
-    heading = f"IN THE HIGH COURT OF SOUTH AFRICA\n{court_division}\n\nIn the matter between:\nBOBBY MOAHI (Applicant)\nand\nTHE NATIONAL EXECUTIVE OF THE REPUBLIC OF SOUTH AFRICA & OTHERS (Respondents)"
+    heading = f"IN THE HIGH COURT OF SOUTH AFRICA\n{court_division}\n\nIn the matter between:\n{FULL_NAME.upper()} (Applicant)\nand\nTHE NATIONAL EXECUTIVE OF THE REPUBLIC OF SOUTH AFRICA & OTHERS (Respondents)"
     
     # 1. Generate Master Index (MoI)
     index_file_name = f"A01_Master_Index_of_Documents_{token}.pdf"
@@ -240,7 +253,7 @@ def run_bpasi_swarm():
     
     # 2. Generate Main Pleading Affidavit
     affidavit_body = (
-        f"I, the undersigned, BOBBY MOAHI, do hereby make oath and state:\n\n"
+        f"I, the undersigned, {FULL_NAME.upper()}, do hereby make oath and state:\n\n"
         f"1. I am an individual Litigant in Person initiating this application under Section 38(d) of the Constitution of the Republic of South Africa, 1996.\n\n"
         f"2. THE TOTAL CONSTITUTIONAL INTEGRITY VECTOR:\n"
         f"This application is brought not merely against individual sections, but directly against the systemic violation of the entire Constitution as the supreme law of the Republic under Section 2. The Respondents have systematically undermined the foundational values of the state, including the absolute Rule of Law enshrined in Section 1(c), the accountability mandates of Chapter 10, and the socio-economic safeguards of the Bill of Rights in Chapter 2.\n\n"
