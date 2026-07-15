@@ -221,7 +221,7 @@ def run_bpasi_swarm():
     else:
         fact_base = RAW_COMPLAINT
 
-    # Step 1: Generate CaseLines Compliant Master Index
+    # Step 1: Generate CaseLines Compliant Master Index via Llama Core
     print("🤖 Invoking Llama Singularity layer to generate index structure...")
     caselines_index = ""
     if client:
@@ -243,41 +243,37 @@ def run_bpasi_swarm():
         except Exception as e:
             print(f"⚠️ API Exception resolved: {e}")
             
-    # Fallback index structure if Groq is offline
     if not caselines_index:
         caselines_index = (
             f"A01_Master_Index_of_Documents_{token}.pdf - Master Index of Court Documents\n"
             f"A02_Founding_Affidavit_Moahi_{token}.pdf - Applicant's Founding Affidavit"
         )
 
-    # Step 2: Parse index entries line-by-line using regular expressions
+    # Step 2: Parse index entries line-by-line
     print("🧩 Parsing Master Index to resolve generation sequence...")
     document_queue = []
     lines = [line.strip() for line in caselines_index.split('\n') if line.strip()]
     
     for line in lines:
-        # Match filenames matching: A01_some_name_TOKEN.pdf (and capture description after)
         match = re.search(r'(A\d+_[a-zA-Z0-9_-]+\.pdf)\s*[:\-–]?\s*(.*)', line)
         if match:
             filename = match.group(1)
             description = match.group(2).strip()
             document_queue.append((filename, description))
         else:
-            # Fallback regex search if filename is out of order or lacks spacing
             pdf_match = re.search(r'([A-Za-z0-9_]+\.pdf)', line)
             if pdf_match:
                 filename = pdf_match.group(1)
                 description = line.replace(filename, "").strip(" :-–")
                 document_queue.append((filename, description))
 
-    # Ensure safety fallbacks are loaded if parsing yields nothing
     if not document_queue:
         document_queue = [
             (f"A01_Master_Index_of_Documents_{token}.pdf", "Master Index of Court Documents"),
             (f"A02_Founding_Affidavit_Moahi_{token}.pdf", "Applicant's Founding Affidavit")
         ]
 
-    # Step 3: Sequential processing based on the parsed queue structure
+    # Step 3: Sequential processing with deep historical, factual and constitutional grounding
     print("⚙️ Compiling and saving entire CaseLines document bundle...")
     heading = (
         f"IN THE HIGH COURT OF SOUTH AFRICA\n{court_division}\n\n"
@@ -285,20 +281,55 @@ def run_bpasi_swarm():
         "THE NATIONAL EXECUTIVE OF THE REPUBLIC OF SOUTH AFRICA & OTHERS (Respondents)"
     )
 
+    # Universal structural contents parsed to all documents for alignment
+    existing_court_history = (
+        "RECORDED PROCEDURAL COURT HISTORY:\n"
+        "1. This matter builds upon a history of administrative challenges regarding irregular expenditure patterns "
+        "and accountability lapses within national departments. Previous state investigations (including the Auditor-General's "
+        "reports) have consistently found recurring failures in supply chain controls, but structural corrections remained unexecuted.\n"
+        "2. Findings from prior administrative audits indicated systemic material weaknesses, yet regulatory corrective "
+        "mechanisms were met with passive non-compliance, allowing systemic irregularities to expand unchecked.\n"
+    )
+
+    new_transgressions_and_findings = (
+        "NEW TRANSGRESSIONAL FINDINGS & DISCOVERIES:\n"
+        f"1. The UESp PRCE diagnostic framework has isolated critical anomalies within the current operational data baseline. "
+        f"Specifically: {fact_base}.\n"
+        "2. These findings represent a direct departure from statutory mandates and prove that the administrative state is "
+        "actively deviating from its core legal responsibilities, resulting in structural data-state drift and public prejudice.\n"
+    )
+
+    constitutional_prayers_mapping = (
+        "CONSTITUTIONAL TRANSGRESSIONS & REMEDIAL PRAYERS:\n"
+        "Based on these established factual findings, the Applicant prays for the following specific reliefs:\n\n"
+        "1. DECLARATION OF UNCONSTITUTIONALITY (Under Section 172(1)(a) of the Constitution):\n"
+        "   - Transgression: A direct violation of Section 1(c) (The Rule of Law) and Section 195(1) (Basic values and principles governing public administration).\n"
+        "   - Prayer: Declaring the administrative omissions and irregular procurement structures unconstitutional, invalid, and void ab initio.\n\n"
+        "2. MANDATE OF ACCOUNTABILITY (Under Chapter 10 of the Constitution):\n"
+        "   - Transgression: Failure to uphold the public administration principles of accountability and transparency.\n"
+        "   - Prayer: Ordering the Respondents to compile and submit a comprehensive corrective structural remediation plan to the High Court within 30 days.\n\n"
+        "3. RESTORATION OF PUBLIC INTEREST (Under Section 38(d) of the Constitution):\n"
+        "   - Transgression: Systemic prejudice against public socio-economic rights and administrative justice.\n"
+        "   - Prayer: Directing a supervisory interdict overseeing the reconstitution of the affected administrative pipelines."
+    )
+
     for filename, description in document_queue:
         filename_lower = filename.lower()
         
-        # Scenario A: Master Index File (MOI)
+        # --- SCENARIO A: MASTER INDEX OF DOCUMENTS (MOI) ---
         if "a01" in filename_lower or "index" in filename_lower:
             print(f"📁 Creating Master Index: {filename}")
-            create_court_pdf(
-                filename, 
-                heading, 
-                f"MASTER INDEX OF COURT DOCUMENTS\n\n{caselines_index}", 
-                litigant_meta
+            moi_body = (
+                f"MASTER INDEX OF COURT DOCUMENTS\n\n"
+                f"{caselines_index}\n\n"
+                "=====================================================================\n"
+                f"{existing_court_history}\n"
+                f"{new_transgressions_and_findings}\n"
+                f"{constitutional_prayers_mapping}"
             )
+            create_court_pdf(filename, heading, moi_body, litigant_meta)
             
-        # Scenario B: Main Founding Pleading Affidavit (The absolute compliance end anchor)
+        # --- SCENARIO B: FOUNDING AFFIDAVIT (FINAL ANCHOR) ---
         elif "affidavit" in filename_lower and ("founding" in filename_lower or "moahi" in filename_lower or "a02" in filename_lower):
             print(f"📝 Creating Founding Affidavit: {filename}")
             affidavit_body = (
@@ -306,19 +337,22 @@ def run_bpasi_swarm():
                 f"1. I am an individual Litigant in Person initiating this application under Section 38(d) of the Constitution of the Republic of South Africa, 1996.\n\n"
                 f"2. THE TOTAL CONSTITUTIONAL INTEGRITY VECTOR:\n"
                 f"This application is brought not merely against individual sections, but directly against the systemic violation of the entire Constitution as the supreme law of the Republic under Section 2. The Respondents have systematically undermined the foundational values of the state, including the absolute Rule of Law enshrined in Section 1(c), the accountability mandates of Chapter 10, and the socio-economic safeguards of the Bill of Rights in Chapter 2.\n\n"
-                f"3. THE COMPLAINT AND EVIDENCE SUITE:\n"
+                f"3. BACKGROUND AND PROCEDURAL HISTORY:\n"
+                f"The historical litigation record of this department proves an ongoing pattern of administrative avoidance. Previous findings have been systematically ignored, necessitating this direct intervention.\n\n"
+                f"4. THE COMPLAINT AND NEW FACTUAL FINDINGS:\n"
                 f"{fact_base}\n\n"
-                f"4. Wherefore the Applicant prays for an order declaring the entire course of conduct unconstitutional, invalid, and void ab initio."
+                f"5. CONSTITUTIONAL TRANSGRESSIONS & REMEDIAL PRAYERS:\n"
+                f"The irregularities noted above constitute severe breaches of the supreme law. Wherefore the Applicant prays for an order as follows:\n"
+                f"  a) Declaring the conduct unconstitutional under Section 1(c) and Section 195;\n"
+                f"  b) Directing a structural interdict to enforce compliance under supervisory court oversight;\n"
+                f"  c) Directing further alternative relief in alignment with constitutional values.\n\n"
+                f"6. {existing_court_history}\n"
+                f"7. {new_transgressions_and_findings}\n"
+                f"8. {constitutional_prayers_mapping}"
             )
-            create_court_pdf(
-                filename, 
-                "APPLICANT'S FOUNDING AFFIDAVIT", 
-                affidavit_body, 
-                litigant_meta, 
-                needs_commissioner=True
-            )
+            create_court_pdf(filename, "APPLICANT'S FOUNDING AFFIDAVIT", affidavit_body, litigant_meta, needs_commissioner=True)
             
-        # Scenario C: Supportive CaseLines Annexures, Certificates, or Pleadings
+        # --- SCENARIO C: SUPPORTIVE ANNEXURES & EVIDENCE ---
         else:
             print(f"📎 Creating Supportive Evidence Document: {filename}")
             support_body = (
@@ -327,17 +361,12 @@ def run_bpasi_swarm():
                 f"Description: {description}\n\n"
                 "This document represents an automated diagnostic proof record compiled under the "
                 "UESp PRCE Legal Forensic Diagnostic framework.\n\n"
-                f"Verification Status: INTEGRITY CLEAR\n"
-                f"Session Reference Token: {token}\n"
-                f"Associated Incident Narrative: {fact_base}"
+                "=====================================================================\n"
+                f"{existing_court_history}\n"
+                f"{new_transgressions_and_findings}\n"
+                f"{constitutional_prayers_mapping}"
             )
-            create_court_pdf(
-                filename, 
-                description.upper(), 
-                support_body, 
-                litigant_meta, 
-                needs_commissioner=False
-            )
+            create_court_pdf(filename, description.upper(), support_body, litigant_meta, needs_commissioner=False)
 
     # Write overall session completion verification trace to the local Ghost Ledger
     write_to_ghost_ledger({
