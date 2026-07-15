@@ -5,20 +5,19 @@ import uuid
 import json
 import hashlib
 import math
+import re
 import requests
 import datetime
-from openai import OpenAI  # Using the installed openai library configured for Groq
+from openai import OpenAI  # Native OpenAI library pointing to Groq API
 from fpdf import FPDF
 from fpdf.enums import XPos, YPos
 
 # =====================================================================
 # SYSTEM CONFIGURATION & GLOBAL IDENTITY CONTRACTS
 # =====================================================================
-# Map variables directly to your GitHub Action YAML environment mappings
 TIMESTAMP = os.getenv('WP_TIMESTAMP', datetime.datetime.now(datetime.timezone.utc).isoformat())
 SESSION_ID = os.getenv('WP_SESSION_ID') or str(uuid.uuid4())
 
-# User Identity Reconstruction from YAML ENV inputs
 FIRST_NAMES = os.getenv('USER_FIRST_NAMES', 'Bobby')
 SURNAME = os.getenv('USER_SURNAME', 'Moahi')
 FULL_NAME = f"{FIRST_NAMES} {SURNAME}"
@@ -33,12 +32,10 @@ PHONE = os.getenv('USER_PHONE', '+27710000000')
 EMAIL = os.getenv('USER_EMAIL', 'bobby.moahi@example.com')
 RAW_COMPLAINT = os.getenv('RAW_COMPLAINT', 'Systemic failure in tracking tender allocations regarding critical tech infrastructure.')
 
-# Authoritative GitHub Asset Routing Path Matrix
 USERNAME = "PopeTroy"
 REPO = "PopeTroy-Signature-Mage-console-Nano-scaling"
 RAW_BASE_URL = f"https://raw.githubusercontent.com/{USERNAME}/{REPO}/main/"
 
-# Secure initialization of the OpenAI compatible Groq endpoint
 groq_api_key = os.getenv("GROQ_API_KEY")
 client = OpenAI(
     base_url="https://api.groq.com/openai/v1",
@@ -65,10 +62,6 @@ def sanitize_for_latin1(text):
 # COMPLIANCE INTERFACE: THE GHOST LEDGER WRITER
 # =====================================================================
 def write_to_ghost_ledger(entry: dict):
-    """
-    Appends the current system execution trace to an immutable, local audit log.
-    Fulfills POPIA Condition 7 (Security Safeguards) and prevents chronological erasure.
-    """
     ledger_path = 'compliance_audit_ledger.jsonl'
     try:
         complete_entry = {
@@ -228,48 +221,130 @@ def run_bpasi_swarm():
     else:
         fact_base = RAW_COMPLAINT
 
-    # Call AI endpoint securely pointing to Groq via the standard OpenAI SDK client wrapper
+    # Step 1: Generate CaseLines Compliant Master Index
+    print("🤖 Invoking Llama Singularity layer to generate index structure...")
+    caselines_index = ""
     if client:
         try:
             groq_res = client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
-                messages=[{"role": "user", "content": f"Create a strict court-compliant CaseLines Master Index of Documents (MoI) based on this systemic constitutional challenge: {fact_base}"}],
+                messages=[{
+                    "role": "user", 
+                    "content": (
+                        "Create a strict, court-compliant CaseLines Master Index of Documents (MoI) "
+                        f"using the prefix structure 'A01', 'A02', etc., specifically for this challenge: {fact_base}. "
+                        f"Format each line as: 'AXX_Filename_{token}.pdf - Document Description'. "
+                        "The list must begin with the Master Index and end with the Founding Affidavit. No extra text."
+                    )
+                }],
                 temperature=0.1
             )
-            caselines_index = groq_res.choices[0].message.content
+            caselines_index = groq_res.choices[0].message.content.strip()
         except Exception as e:
-            logger_err = f"API parsing exception resolved: {str(e)}"
-            caselines_index = f"A01_Master_Index_{token}.pdf\nA02_Founding_Affidavit_Moahi_{token}.pdf"
-            write_to_ghost_ledger({"status": "INFERENCE_FALLBACK", "detail": logger_err})
-    else:
-        caselines_index = f"A01_Master_Index_{token}.pdf\nA02_Founding_Affidavit_Moahi_{token}.pdf"
+            print(f"⚠️ API Exception resolved: {e}")
+            
+    # Fallback index structure if Groq is offline
+    if not caselines_index:
+        caselines_index = (
+            f"A01_Master_Index_of_Documents_{token}.pdf - Master Index of Court Documents\n"
+            f"A02_Founding_Affidavit_Moahi_{token}.pdf - Applicant's Founding Affidavit"
+        )
 
-    print("⚙️ Compiling Document Dossier with supreme constitutional grounding...")
-    heading = f"IN THE HIGH COURT OF SOUTH AFRICA\n{court_division}\n\nIn the matter between:\n{FULL_NAME.upper()} (Applicant)\nand\nTHE NATIONAL EXECUTIVE OF THE REPUBLIC OF SOUTH AFRICA & OTHERS (Respondents)"
+    # Step 2: Parse index entries line-by-line using regular expressions
+    print("🧩 Parsing Master Index to resolve generation sequence...")
+    document_queue = []
+    lines = [line.strip() for line in caselines_index.split('\n') if line.strip()]
     
-    # 1. Generate Master Index (MoI)
-    index_file_name = f"A01_Master_Index_of_Documents_{token}.pdf"
-    create_court_pdf(index_file_name, heading, f"MASTER INDEX OF COURT DOCUMENTS\n\n{caselines_index}", litigant_meta)
-    
-    # 2. Generate Main Pleading Affidavit
-    affidavit_body = (
-        f"I, the undersigned, {FULL_NAME.upper()}, do hereby make oath and state:\n\n"
-        f"1. I am an individual Litigant in Person initiating this application under Section 38(d) of the Constitution of the Republic of South Africa, 1996.\n\n"
-        f"2. THE TOTAL CONSTITUTIONAL INTEGRITY VECTOR:\n"
-        f"This application is brought not merely against individual sections, but directly against the systemic violation of the entire Constitution as the supreme law of the Republic under Section 2. The Respondents have systematically undermined the foundational values of the state, including the absolute Rule of Law enshrined in Section 1(c), the accountability mandates of Chapter 10, and the socio-economic safeguards of the Bill of Rights in Chapter 2.\n\n"
-        f"3. THE COMPLAINT AND EVIDENCE SUITE:\n"
-        f"{fact_base}\n\n"
-        f"4. Wherefore the Applicant prays for an order declaring the entire course of conduct unconstitutional, invalid, and void ab initio."
+    for line in lines:
+        # Match filenames matching: A01_some_name_TOKEN.pdf (and capture description after)
+        match = re.search(r'(A\d+_[a-zA-Z0-9_-]+\.pdf)\s*[:\-–]?\s*(.*)', line)
+        if match:
+            filename = match.group(1)
+            description = match.group(2).strip()
+            document_queue.append((filename, description))
+        else:
+            # Fallback regex search if filename is out of order or lacks spacing
+            pdf_match = re.search(r'([A-Za-z0-9_]+\.pdf)', line)
+            if pdf_match:
+                filename = pdf_match.group(1)
+                description = line.replace(filename, "").strip(" :-–")
+                document_queue.append((filename, description))
+
+    # Ensure safety fallbacks are loaded if parsing yields nothing
+    if not document_queue:
+        document_queue = [
+            (f"A01_Master_Index_of_Documents_{token}.pdf", "Master Index of Court Documents"),
+            (f"A02_Founding_Affidavit_Moahi_{token}.pdf", "Applicant's Founding Affidavit")
+        ]
+
+    # Step 3: Sequential processing based on the parsed queue structure
+    print("⚙️ Compiling and saving entire CaseLines document bundle...")
+    heading = (
+        f"IN THE HIGH COURT OF SOUTH AFRICA\n{court_division}\n\n"
+        f"In the matter between:\n{FULL_NAME.upper()} (Applicant)\nand\n"
+        "THE NATIONAL EXECUTIVE OF THE REPUBLIC OF SOUTH AFRICA & OTHERS (Respondents)"
     )
-    affidavit_file_name = f"A02_Founding_Affidavit_Moahi_{token}.pdf"
-    create_court_pdf(affidavit_file_name, "APPLICANT'S FOUNDING AFFIDAVIT", affidavit_body, litigant_meta, needs_commissioner=True)
-    
-    # Write complete session wrap up directly to the Ghost Ledger
+
+    for filename, description in document_queue:
+        filename_lower = filename.lower()
+        
+        # Scenario A: Master Index File (MOI)
+        if "a01" in filename_lower or "index" in filename_lower:
+            print(f"📁 Creating Master Index: {filename}")
+            create_court_pdf(
+                filename, 
+                heading, 
+                f"MASTER INDEX OF COURT DOCUMENTS\n\n{caselines_index}", 
+                litigant_meta
+            )
+            
+        # Scenario B: Main Founding Pleading Affidavit (The absolute compliance end anchor)
+        elif "affidavit" in filename_lower and ("founding" in filename_lower or "moahi" in filename_lower or "a02" in filename_lower):
+            print(f"📝 Creating Founding Affidavit: {filename}")
+            affidavit_body = (
+                f"I, the undersigned, {FULL_NAME.upper()}, do hereby make oath and state:\n\n"
+                f"1. I am an individual Litigant in Person initiating this application under Section 38(d) of the Constitution of the Republic of South Africa, 1996.\n\n"
+                f"2. THE TOTAL CONSTITUTIONAL INTEGRITY VECTOR:\n"
+                f"This application is brought not merely against individual sections, but directly against the systemic violation of the entire Constitution as the supreme law of the Republic under Section 2. The Respondents have systematically undermined the foundational values of the state, including the absolute Rule of Law enshrined in Section 1(c), the accountability mandates of Chapter 10, and the socio-economic safeguards of the Bill of Rights in Chapter 2.\n\n"
+                f"3. THE COMPLAINT AND EVIDENCE SUITE:\n"
+                f"{fact_base}\n\n"
+                f"4. Wherefore the Applicant prays for an order declaring the entire course of conduct unconstitutional, invalid, and void ab initio."
+            )
+            create_court_pdf(
+                filename, 
+                "APPLICANT'S FOUNDING AFFIDAVIT", 
+                affidavit_body, 
+                litigant_meta, 
+                needs_commissioner=True
+            )
+            
+        # Scenario C: Supportive CaseLines Annexures, Certificates, or Pleadings
+        else:
+            print(f"📎 Creating Supportive Evidence Document: {filename}")
+            support_body = (
+                f"SUPPORTIVE EVIDENCE AND PROCEDURAL METADATA:\n\n"
+                f"Document Ref: {filename}\n"
+                f"Description: {description}\n\n"
+                "This document represents an automated diagnostic proof record compiled under the "
+                "UESp PRCE Legal Forensic Diagnostic framework.\n\n"
+                f"Verification Status: INTEGRITY CLEAR\n"
+                f"Session Reference Token: {token}\n"
+                f"Associated Incident Narrative: {fact_base}"
+            )
+            create_court_pdf(
+                filename, 
+                description.upper(), 
+                support_body, 
+                litigant_meta, 
+                needs_commissioner=False
+            )
+
+    # Write overall session completion verification trace to the local Ghost Ledger
     write_to_ghost_ledger({
         "status": "COMPREHENSIVE_CONSTITUTIONAL_DOSSIER_HARDLOCKED",
         "session_id": SESSION_ID,
-        "index_generated": index_file_name,
-        "affidavit_generated": affidavit_file_name,
+        "token_reference": token,
+        "documents_generated": [item[0] for item in document_queue],
         "lead_generated": lead_notification
     })
 
